@@ -2,7 +2,7 @@
 
 from torch.multiprocessing import Pool
 import torch.multiprocessing as mp
-import torch_apc_utils1 as ap
+import torch_apc_utils as ap
 import numpy as np
 import torch
 import time
