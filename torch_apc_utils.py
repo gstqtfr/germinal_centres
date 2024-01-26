@@ -1,19 +1,53 @@
 import torch
-from typing import Tuple
+from typing import Tuple, List
 from torch import linalg as LA
 import math
 
 
-def generate_apc(shape: Tuple[int, int], low=0, high=256, dtype=torch.uint8):
+def generate_apc(shape: Tuple[int, int], low=0, high=256, dtype=torch.uint8) -> torch.tensor:
+    """
+    Generates a 2D matrix representing the receptor of an antigen presenting cell (APC).
+    The matrix is of shape dimensions, and of type unsigned int. It's randomly generated
+    with each element in the range [0,256).
+    :param shape: shape of 2D matrix required, e.g. [8,8], [16,16], et.
+    :type shape: tuple of unsigned ints
+    :param low: lowest end of the range of the randomly generated matrix, usually 0.
+    :type low: unsigned int
+    :param high: high end of the range of the matrix, 256 as default, since we're using unsigned ints.
+    :type high: int, in this case - the random operation interval is exclusive at the upper end.
+    :param dtype: required type - default is unsigned int
+    :type dtype: a torch dtype specification
+    :return: a randomly-initialised 2D matrix
+    :rtype: torch tensor of the given dimension and type
+    """
     return torch.randint(size=shape, low=low, high=high, dtype=dtype)
 
 
-def get_NxN_neighbourhood(N):
+def get_NxN_neighbourhood(N: int) -> List[Tuple[int, int]]:
+    """Creates a square, 2D neighbourhood of a given dimension, surrounding a central hotspot.
+    N=1 generates a 3x3 neighbourhood, N=2 a 5x5 neighbourhood, etc.
+    For N=1, we generate matrix offsets centred on (0,0), like the following:
+
+    [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 0), (0, 1), (1, -1), (1, 0), (1, 1)]
+
+    These offsets allows us to easily reference the matrix at the given indices.
+    :param N: the size of the 2D neighbourhood surrounding a central square.
+    :type N: int
+    :return: the matrix offsets which surround (& include) the central square, or hotspot.
+    :rtype: List of indicies (coordinates) of neighbouring squares in 2-tuple format.
+    """
     return [(i, j) for i in range(-N, N + 1) for j in range(-N, N + 1)]
 
 
 def get_paratope_frequency(repertoire_, max_=256):
-    """Gets the frequency of 1-paratopes expressed as a frequency table in the repertoire."""
+    """Gets the frequency of 1-paratopes expressed as a frequency table in the repertoire.
+    :param repertoire_: repertoire of APC receptors - 2D matrices in torch tensor format, so a 3D tensor
+    :type repertoire_: 3D torch tensor of unsigned integers
+    :param max_: high (excluded) end of the [0,256) interval
+    :type max_: int
+    :return: a frequency table of the paratopes expressed in the repertorie.
+    :rtype: 2D matrix
+    """
     # we need the repertoire size * the size of the matrix
     # that is, repertoire size * matrix rows * matrix cols
     bincount_sz = repertoire_.shape[0] * repertoire_.shape[1]
@@ -53,12 +87,63 @@ def initialise_icol(N=10, image_shape=(8, 8)):
 
 
 def select_neighbourhood(neighbourhoods):
-    """Given a list of neighbourhoods, randomly selects & returns one"""
+    """Given a list of neighbourhoods, randomly selects & returns one
+    :param neighbourhoods: list of various-sized neighbourhoods
+    :type neighbourhoods: list of torch tensors
+    :return: randomly-generated offset into the list
+    :rtype: uint
+    """
     N = len(neighbourhoods)
     return int(torch.rand(1) * N)
 
 
-def get_neighbourhood(hotspot, coords, max_=8):
+def get_neighbourhood(hotspot: Tuple[int, int], coords: List[Tuple[int, int]], max_: int = 8) -> List[List[List[Tuple[int, int]]]]:
+    """
+    Generates a neighbourhood for each of the possible neighbourhoods in a given matrix.
+    We take a hotspot - a coordinate in the matrix, say (x,y) - & we produce any neighbouring squares in the
+    matrix, using coords as our offsets. This is not toroidal - any squares not in the immediate vicinity are
+    given as (-1,-1), which means unreachable; we don't wrap around to the other side of the matrix, since this
+    element is by definition non-local.
+
+    We return a list of (N,N, hood=neighbourhood-size, 2), where (N,N) is the size of the matrix, hood is the
+    size of the neighbourhood (e.g. 9, 25, 36, ...), and 2 is the tuple giving the coordinates.
+
+    As an example, say we have an 3x3 matrix as defined by coords, & we want to generate the neighbourhoods for [0,0]. Given this
+    coordinate, quite a few of the entries are unreachable - they'd require us to wrap aound to the other side
+    of the matrix, or the bottom of the matrix. But we are only interested in contiguous squares in the matrix.
+    So we'd produce the following:
+
+    [-1, -1],
+    [-1, -1],
+    [-1, -1],
+    [-1, -1],
+    [0, 0],
+    [0, 1],
+    [-1, -1],
+    [1, 0],
+    [1, 1]
+
+    However, a hotspot located more centrally in the matrix, such as [2,2], would produce:
+
+    [[1, 1],
+        [1, 2],
+        [1, 3],
+        [2, 1],
+        [2, 2],
+        [2, 3],
+        [3, 1],
+        [3, 2],
+        [3, 3]]
+
+    :param hotspot: coordinate we want to find the neighbourhood of
+    :type hotspot: tuple[int, int]
+    :param coords: list of tuples (coordinates) centred on the central square, for example as created by get_NxN_neighbourhood
+    :type coords: list[tuple[int, int]]
+    :param max_: maximum size of the side of the APC receptor matrix, e.g. 8 for an 8x8 matrix
+    :type max_:int
+    :return: a list of lists of all the neighbours for the hotspot, with unreachable coordinates given a (-1,-1)
+    :rtype: List[List[List[Tuple[int, int]]]]
+    """
     def check_range(idx, min_=0, max=max_):
         return min_ <= idx < max
 
@@ -82,13 +167,27 @@ def get_neighbourhood(hotspot, coords, max_=8):
     return neighbours
 
 
-def manhattan(x1, y1, x2, y2):
+def manhattan(x1: int, y1: int, x2: int, y2: int) -> int:
+    """
+    Find the Manhattan distance between two elements of a matrix. We're calculating the distance based on their
+    indices. For example if we're given the cell of a matrix at (0,0), & want to find the distance to (3,-2), we
+     have manhattan(0, 0, 3,-2) = 5.
+    :param x1: x-coordinate of first matrix cell
+    :type x1: int
+    :param y1: y-coordinate of first matrix cell
+    :type y1: int
+    :param x2: x-coord of second matrix cell
+    :type x2: int
+    :param y2: y-coord of second matrix cell
+    :type y2: int
+    :return: Manhattan distance between the two cells
+    :rtype: int
+    """
     return int(math.fabs(x2 - x1) + math.fabs(y2 - y1))
 
 
 def calculate_diffusion_coefficients_by_coordinates(hotspot, coord, rho, N=3):
     distance = manhattan(hotspot[0], hotspot[1], coord[0], coord[1])
-    # print(f"distance between ({hotspot[0]},{hotspot[1]}) and ({coord[0]},{coord[1]}) is {distance}")
     # we want an inverse relationship between the distance & the probability
     if distance > N:
         return 0.0

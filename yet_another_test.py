@@ -71,7 +71,7 @@ def main():
     neighbourhood_list = [neighbours_3x3, neighbours_5x5, neighbours_7x7]
 
     print(f"Building the arguments")
-    args = [(repertoire[idx], idx, device, neighbourhood_list, \
+    args = [(repertoire[idx], idx, device, neighbourhood_list,
              img, C_SZ, sz_squared) for idx in range(R_SZ)]
 
     # yep, we *can* tidy up this code - but let's just get the damn thing working first!
