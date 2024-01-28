@@ -113,16 +113,14 @@ def main():
     for i in range(R_SZ):
         repertoire[i] = ap.generate_apc(shape=apc_shape)
 
-    #print(f"Building the arguments")
-    #args = [(repertoire[idx], idx, device, neighbourhood_list, images_for_classes[idx], C_SZ, 0.99) for
-    #        idx in range(NC) for jdx in range(IMGS) ]
-
     # yep, we *can* tidy up this code - but let's just get the damn thing working first!
-    apc_affinity = torch.empty(R_SZ, dtype=torch.float32).to(device)
+    apc_distance = torch.empty(R_SZ, dtype=torch.float32).to(device)
 
     with open(file_name, mode='w') as out:
         with Pool(R_SZ) as pool:
             for it in range(ITERATIONS):
+                # TODO: we need to make sure we get the distance for each image, then
+                # TODO: we get the mean of each iteration
                 for img_idx in range(IMGS):
                     args = string_build_arg_list(img_idx=img_idx,
                                                     repertoire_=repertoire,
@@ -135,10 +133,10 @@ def main():
                                                     rho=0.99)
                     results = pool.starmap(ap.batch_process_clone_and_hypermutate, args)
                     for idx, (apc, aff) in enumerate(results):
-                        apc_affinity[idx] = aff
+                        apc_distance[idx] = aff
                         repertoire[idx] = apc
                     # we divide the affinity by the number of images
-                    mean_affinity = float(apc_affinity.sum() / R_SZ)
+                    mean_affinity = float(apc_distance.sum() / R_SZ)
                     print(f"{it} : {mean_affinity}")
                     out.write(f"{str(it)}\t{str(mean_affinity)}\n")
 
