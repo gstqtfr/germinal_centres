@@ -200,12 +200,6 @@ def calculate_diffusion_coefficients_by_coordinates(hotspot, coord, rho, N=3):
 def somatic_hypermutation_with_diffusion(clone, device, all_neighbours, hotspot, rho, max_x=256):
     """Get the neighbourhood for this hotspot, based on the neighbours parameter."""
 
-    # print(f"hotspot info: {get_DS_info(hotspot)}")
-    # print(f"clone info: {get_DS_info(clone)}")
-    # print(f"device: {device}")
-    # print(f"all_neighbours info: {get_DS_info(all_neighbours)}")
-    # print(f"rho: {rho}")
-
     neighbourhood = all_neighbours[hotspot[0], hotspot[1]]
 
     # we use l to store the hotspots that are actually mutated
@@ -239,6 +233,8 @@ def somatic_hypermutation_with_diffusion(clone, device, all_neighbours, hotspot,
 def get_image_patch(img, x, y, width, height):
     return img[x:x + width, y:y + height]
 
+def get_distance(img, apc):
+    return LA.matrix_norm(apc.type(torch.float32) - img.type(torch.float32))
 
 def get_normalised_distance(img, apc):
     """Performs a 'sliding-window' distance metric over the image."""
@@ -264,18 +260,69 @@ def get_affinity(distances):
     return distances.sum() / distances.shape[0]
 
 
-def clone_and_hypermutate_with_neighbour_selection(apc_, idx_, device_, neighbourhoods_, img_, C_SZ_, rho=0.99):
-    distance_ = get_normalised_distance(img_, apc_).to(device_)
-    affinity_ = get_affinity(distance_).to(device_)
+def batch_process_clone_and_hypermutate(apc_, idx_, device_, neighbourhoods_, images_, C_SZ_, rho=0.99):
+    """We call the clone-&-hypermutate code, & collect the results. We replace at the end of the batch
+     of data."""
+
+    # collect our (maybe) clones
+    # this needs to be a tensor ...
+    might_be_a_clone = []
+    might_be_a_clone_affinity = torch.zeros(images_.shape[0])
+
+    for image_idx, image in enumerate(images_):
+        maybe_clone, maybe_clone_affinity = clone_and_hypermutate_with_neighbour_selection(apc_=apc_,
+                                                                                           idx_=idx_,
+                                                                                           image_idx_=image_idx,
+                                                                                           device_=device_,
+                                                                                           neighbourhoods_=neighbourhoods_,
+                                                                                           img_=image,
+                                                                                           C_SZ_=C_SZ_,
+                                                                                           rho=rho)
+
+        might_be_a_clone.append(maybe_clone)
+        might_be_a_clone_affinity[image_idx] = maybe_clone_affinity
+
+    # now we take the average of these values, & assign them to the APC &
+    # it's corresponding affinity
+    # of course, we could have all sorts of different operations here - doesn't have to be
+    # the mean value of all these. note also that, if we don't have a higher-affinity clone
+    # then we return the original APC from the clone-&-hypermutate code, so we just write
+    # back what we've already got in the repertoire
+
+    # cat to the right type (we may overflow 256, since these are unsigned 8-bit ints)
+    might_be_a_clone = [e.to(torch.int32) for e in might_be_a_clone]
+    # stack 'em & sum 'em
+    maybe_maybe_maybe = torch.stack(might_be_a_clone, dim=0).sum(dim=0)
+    # get the mean of the values, & cast back to unsigned ints
+    maybe_maybe_maybe = (maybe_maybe_maybe / len(might_be_a_clone)).to(torch.uint8)
+
+    # get the mean affinity, & replace
+    # we get the affinity of each "clone", divided by the number of images
+    mean_affinity = might_be_a_clone_affinity.sum() / might_be_a_clone_affinity.shape[0]
+
+    # we automatically replace the APC receptor
+    apc_ = maybe_maybe_maybe.clone()
+
+    return apc_, mean_affinity
+
+
+
+
+def clone_and_hypermutate_with_neighbour_selection(apc_, idx_, image_idx_, device_, neighbourhoods_,
+                                                   img_, C_SZ_, rho=0.99):
+    # TODO: JKK: yeah, we don;t need to normlaise the distance here because they're the same size
+    #distance_ = get_normalised_distance(img_, apc_).to(device_)
+
+    distance_ = get_distance(img_,apc_).to(device_)
+    #affinity_ = get_affinity(distance_).to(device_)
 
     # create our clonal pool
     clones = torch.tile(apc_, (C_SZ_, 1, 1)).to(device_)
 
-    neighbourhood_idx = select_neighbourhood(neighbourhoods_)
-    neighbourhood_ = neighbourhoods_[neighbourhood_idx]
-
     # hypermutate our clones
     for c_id, clone in enumerate(clones):
+        neighbourhood_idx = select_neighbourhood(neighbourhoods_)
+        neighbourhood_ = neighbourhoods_[neighbourhood_idx]
         hotspot = torch.randint(0, size=(2,), high=clone.shape[0]).to(device_)
         # JKK: this WILL THROW AN ERROR in the module, so remember to remove ap. ...
         clone, mutants = somatic_hypermutation_with_diffusion(clone=clone,
@@ -283,19 +330,20 @@ def clone_and_hypermutate_with_neighbour_selection(apc_, idx_, device_, neighbou
                                                               all_neighbours=neighbourhood_,
                                                               hotspot=hotspot,
                                                               rho=rho)
-        clone_distance = get_normalised_distance(img_, clone).to(device_)
-        clone_affinity = get_affinity(clone_distance).clone().to(device_)
+        #clone_distance = get_normalised_distance(img_, clone).to(device_)
+        clone_distance = get_distance(img_, clone).to(device_)
+        #clone_affinity = get_affinity(clone_distance).clone().to(device_)
 
-        if clone_affinity <= affinity_:
-            print(f"apc {idx_} affinity {affinity_} replacing with clone with affinity {clone_affinity}")
+        if clone_distance <= distance_:
+            print(f"image {idx_} apc {c_id} affinity {distance_} adding with distance {clone_distance}")
             apc_ = clone
-            affinity_ = clone_affinity
+            distance_ = clone_distance
 
     # we have to clone the tensors before returning them
     apc_clone = apc_.clone()
-    affinity_clone = affinity_.clone()
+    distance_clone = distance_.clone()
 
-    return apc_clone, affinity_clone
+    return apc_clone, distance_clone
 
 
 def mat_wrap_copy(source, dest, offset):
