@@ -5,7 +5,6 @@ import torch.multiprocessing as mp
 import numpy as np
 import torch
 import time
-from PIL import Image, ImageOps
 import torch_apc_utils as ap
 import MNIST_utils as mu
 from os.path import join
@@ -75,6 +74,7 @@ def main():
     coords_3x3_list = ap.get_NxN_neighbourhood(1)
     coords_5x5_list = ap.get_NxN_neighbourhood(2)
     coords_7x7_list = ap.get_NxN_neighbourhood(3)
+    coords_9x9_list = ap.get_NxN_neighbourhood(4)
 
     # define the neighbourhoods
     coords_3x3_neighbours = [[ap.get_neighbourhood(hotspot=[i, j],
@@ -89,13 +89,18 @@ def main():
                                                    coords=coords_7x7_list,
                                                    max_=apc_shape[0]) for j in range(apc_shape[1])]
                              for i in range(apc_shape[0])]
+    coords_9x9_neighbours = [[ap.get_neighbourhood(hotspot=[i, j],
+                                                   coords=coords_9x9_list,
+                                                   max_=apc_shape[0]) for j in range(apc_shape[1])]
+                             for i in range(apc_shape[0])]
 
     # stick 'em on the GPU
     neighbours_3x3 = torch.tensor(coords_3x3_neighbours, dtype=torch.int).to(device)
     neighbours_5x5 = torch.tensor(coords_5x5_neighbours, dtype=torch.int).to(device)
     neighbours_7x7 = torch.tensor(coords_7x7_neighbours, dtype=torch.int).to(device)
+    neighbours_9x9 = torch.tensor(coords_9x9_neighbours, dtype=torch.int).to(device)
 
-    neighbourhood_list = [neighbours_3x3, neighbours_5x5, neighbours_7x7]
+    neighbourhood_list = [neighbours_3x3, neighbours_5x5, neighbours_7x7, neighbours_9x9]
 
     # create the repertoire
     repertoire = torch.empty(rep_shape, dtype=torch.uint8).to(device)
