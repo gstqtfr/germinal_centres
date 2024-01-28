@@ -78,23 +78,23 @@ def main():
     coords_11x11_list = ap.get_NxN_neighbourhood(5)
 
     # define the neighbourhoods
-    coords_3x3_neighbours = [[ap.get_neighbourhood(hotspot=[i, j],
+    coords_3x3_neighbours = [[ap.get_neighbourhood(hotspot=(i, j),
                                                    coords=coords_3x3_list,
                                                    max_=apc_shape[0]) for j in range(apc_shape[1])]
                              for i in range(apc_shape[0])]
-    coords_5x5_neighbours = [[ap.get_neighbourhood(hotspot=[i, j],
+    coords_5x5_neighbours = [[ap.get_neighbourhood(hotspot=(i, j),
                                                    coords=coords_5x5_list,
                                                    max_=apc_shape[0]) for j in range(apc_shape[1])]
                              for i in range(apc_shape[0])]
-    coords_7x7_neighbours = [[ap.get_neighbourhood(hotspot=[i, j],
+    coords_7x7_neighbours = [[ap.get_neighbourhood(hotspot=(i, j),
                                                    coords=coords_7x7_list,
                                                    max_=apc_shape[0]) for j in range(apc_shape[1])]
                              for i in range(apc_shape[0])]
-    coords_9x9_neighbours = [[ap.get_neighbourhood(hotspot=[i, j],
+    coords_9x9_neighbours = [[ap.get_neighbourhood(hotspot=(i, j),
                                                    coords=coords_9x9_list,
                                                    max_=apc_shape[0]) for j in range(apc_shape[1])]
                              for i in range(apc_shape[0])]
-    coords_11x11_neighbours = [[ap.get_neighbourhood(hotspot=[i, j],
+    coords_11x11_neighbours = [[ap.get_neighbourhood(hotspot=(i, j),
                                                    coords=coords_11x11_list,
                                                    max_=apc_shape[0]) for j in range(apc_shape[1])]
                              for i in range(apc_shape[0])]
