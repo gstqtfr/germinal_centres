@@ -1,8 +1,8 @@
-
 import struct
 from array import array
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
 
 # TODO: these numpy arrays need to be tensors ...
 class MnistDataloader(object):
@@ -57,7 +57,7 @@ def show_images(images, title_texts):
         index += 1
 
 def get_images_for_class(images, indices):
-    return [images[i] for i in indices]
+    return np.array([images[i] for i in indices])
 
 def get_indices_for_class(class_, loa, n=5):
     """Scan through the label file until we have the required number of images for the requested class."""
@@ -68,3 +68,9 @@ def get_images_for_given_class(class_, list_of_labels, list_of_images, n=5):
     indices = get_indices_for_class(class_=class_, loa=list_of_labels, n=n)
     return get_images_for_class(list_of_images, indices)
 
+def build_images_tensor(num_of_classes, number_of_images, list_of_labels, list_of_images):
+    return torch.tensor(np.array([get_images_for_given_class(class_=i,
+                                                    list_of_labels=list_of_labels,
+                                                    list_of_images=list_of_images,
+                                                    n=number_of_images)
+                          for i in range(num_of_classes)]))
