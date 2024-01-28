@@ -31,7 +31,7 @@ def main():
 
     apc_shape = (28, 28)
     R_SZ = 10
-    C_SZ = 10
+    C_SZ = 20
     rep_shape = (R_SZ, *apc_shape)
     # number of images per class
     IMGS = 5
@@ -75,6 +75,7 @@ def main():
     coords_5x5_list = ap.get_NxN_neighbourhood(2)
     coords_7x7_list = ap.get_NxN_neighbourhood(3)
     coords_9x9_list = ap.get_NxN_neighbourhood(4)
+    coords_11x11_list = ap.get_NxN_neighbourhood(5)
 
     # define the neighbourhoods
     coords_3x3_neighbours = [[ap.get_neighbourhood(hotspot=[i, j],
@@ -93,14 +94,19 @@ def main():
                                                    coords=coords_9x9_list,
                                                    max_=apc_shape[0]) for j in range(apc_shape[1])]
                              for i in range(apc_shape[0])]
+    coords_11x11_neighbours = [[ap.get_neighbourhood(hotspot=[i, j],
+                                                   coords=coords_11x11_list,
+                                                   max_=apc_shape[0]) for j in range(apc_shape[1])]
+                             for i in range(apc_shape[0])]
 
     # stick 'em on the GPU
     neighbours_3x3 = torch.tensor(coords_3x3_neighbours, dtype=torch.int).to(device)
     neighbours_5x5 = torch.tensor(coords_5x5_neighbours, dtype=torch.int).to(device)
     neighbours_7x7 = torch.tensor(coords_7x7_neighbours, dtype=torch.int).to(device)
     neighbours_9x9 = torch.tensor(coords_9x9_neighbours, dtype=torch.int).to(device)
+    neighbours_11x11 = torch.tensor(coords_11x11_neighbours, dtype=torch.int).to(device)
 
-    neighbourhood_list = [neighbours_3x3, neighbours_5x5, neighbours_7x7, neighbours_9x9]
+    neighbourhood_list = [neighbours_3x3, neighbours_5x5, neighbours_7x7, neighbours_9x9, neighbours_11x11]
 
     # create the repertoire
     repertoire = torch.empty(rep_shape, dtype=torch.uint8).to(device)
