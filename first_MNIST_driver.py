@@ -9,16 +9,11 @@ import torch_apc_utils as ap
 import MNIST_utils as mu
 from os.path import join
 
-def string_build_arg_list(img_idx, repertoire_, device_, neighbourhood_list_, images_for_classes_, R_SZ_, C_SZ_, IMGS_, rho=0.99):
+def string_build_arg_list(repertoire_, device_, neighbourhood_list_, images_for_classes_, R_SZ_, C_SZ_, IMGS_, rho=0.99):
     arguments=[]
     for idx_ in range(R_SZ_):
-        arguments.append((repertoire_[idx_], idx_, device_, neighbourhood_list_, images_for_classes_[idx_][img_idx], C_SZ_, rho))
+        arguments.append((repertoire_[idx_], idx_, device_, neighbourhood_list_, images_for_classes_[idx_], C_SZ_, rho))
     return arguments
-
-
-def build_arg_list(img_idx, repertoire_, device_, neighbourhood_list_, images_for_classes_, R_SZ_, C_SZ_, rho=0.99):
-    return [(repertoire_[idx], idx, device_, neighbourhood_list_, images_for_classes_[idx][img_idx], C_SZ_, rho)
-            for idx in range(R_SZ_)]
 
 def main():
 
@@ -55,14 +50,19 @@ def main():
     print('MNIST dataset loaded.')
 
     # TODO: wrap in np.array
-    images_for_classes = {i: np.array(mu.get_images_for_given_class(class_=i,
-                                                                    list_of_labels=y_train,
-                                                                    list_of_images=x_train,
-                                                                    n=IMGS))
-                          for i in range(NC)}
+    # images_for_classes = {i: np.array(mu.get_images_for_given_class(class_=i,
+    #                                                                 list_of_labels=y_train,
+    #                                                                 list_of_images=x_train,
+    #                                                                 n=IMGS))
+    #                       for i in range(NC)}
+    #
+    # for i in range(NC):
+    #     images_for_classes[i] = torch.tensor(images_for_classes[i]).to(device)
 
-    for i in range(NC):
-        images_for_classes[i] = torch.tensor(images_for_classes[i]).to(device)
+    images_for_classes = mu.build_images_tensor(num_of_classes=NC,
+                                                number_of_images=IMGS,
+                                                list_of_labels=y_train,
+                                                list_of_images=x_train).to(device)
 
     file_base_name = "first_MNIST_driver-with-an-almost-lemony-freshness"
     file_name_ext = ".tsv"
@@ -122,8 +122,7 @@ def main():
                 # TODO: we need to make sure we get the distance for each image, then
                 # TODO: we get the mean of each iteration
                 for img_idx in range(IMGS):
-                    args = string_build_arg_list(img_idx=img_idx,
-                                                    repertoire_=repertoire,
+                    args = string_build_arg_list(repertoire_=repertoire,
                                                     device_=device,
                                                     neighbourhood_list_=neighbourhood_list,
                                                     images_for_classes_=images_for_classes,
