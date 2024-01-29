@@ -22,14 +22,14 @@ def main():
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(f"{device}")
 
-    ITERATIONS = 50
+    ITERATIONS = 500
 
     apc_shape = (28, 28)
     R_SZ = 10
     C_SZ = 20
     rep_shape = (R_SZ, *apc_shape)
     # number of images per class
-    IMGS = 5
+    NUMBER_OF_IMG_SAMPLES = 20
     # number of classes
     NC=10
 
@@ -49,18 +49,8 @@ def main():
     (x_train, y_train), (x_test, y_test) = mnist_dataloader.load_data()
     print('MNIST dataset loaded.')
 
-    # TODO: wrap in np.array
-    # images_for_classes = {i: np.array(mu.get_images_for_given_class(class_=i,
-    #                                                                 list_of_labels=y_train,
-    #                                                                 list_of_images=x_train,
-    #                                                                 n=IMGS))
-    #                       for i in range(NC)}
-    #
-    # for i in range(NC):
-    #     images_for_classes[i] = torch.tensor(images_for_classes[i]).to(device)
-
     images_for_classes = mu.build_images_tensor(num_of_classes=NC,
-                                                number_of_images=IMGS,
+                                                number_of_images=NUMBER_OF_IMG_SAMPLES,
                                                 list_of_labels=y_train,
                                                 list_of_images=x_train).to(device)
 
@@ -121,14 +111,14 @@ def main():
             for it in range(ITERATIONS):
                 # TODO: we need to make sure we get the distance for each image, then
                 # TODO: we get the mean of each iteration
-                for img_idx in range(IMGS):
+                for img_idx in range(NUMBER_OF_IMG_SAMPLES):
                     args = string_build_arg_list(repertoire_=repertoire,
                                                     device_=device,
                                                     neighbourhood_list_=neighbourhood_list,
                                                     images_for_classes_=images_for_classes,
                                                     R_SZ_=R_SZ,
                                                     C_SZ_=C_SZ,
-                                                    IMGS_=IMGS,
+                                                    IMGS_=NUMBER_OF_IMG_SAMPLES,
                                                     rho=0.99)
                     results = pool.starmap(ap.batch_process_clone_and_hypermutate, args)
                     for idx, (apc, aff) in enumerate(results):
@@ -139,8 +129,14 @@ def main():
                     print(f"{it} : {mean_affinity}")
                     out.write(f"{str(it)}\t{str(mean_affinity)}\n")
 
-        end = time.time()
-        print(f"Execution time: {end - start}")
+    # write the APC receptors out to a file
+
+    for idx, apc in enumerate(repertoire):
+        fnam = f"receptor{str(idx)}.pt"
+        torch.save(apc, fnam)
+
+    end = time.time()
+    print(f"Execution time: {end - start}")
 
 if __name__ == '__main__':
     mp.set_start_method('spawn', force=True)
