@@ -22,14 +22,14 @@ def main():
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(f"{device}")
 
-    ITERATIONS = 500
+    ITERATIONS = 100
 
     apc_shape = (28, 28)
     R_SZ = 10
-    C_SZ = 20
+    C_SZ = 10
     rep_shape = (R_SZ, *apc_shape)
     # number of images per class
-    NUMBER_OF_IMG_SAMPLES = 20
+    NUMBER_OF_IMG_SAMPLES = 10
     # number of classes
     NC=10
 
