@@ -1,5 +1,5 @@
 import torch
-from typing import Tuple, List
+from typing import Tuple, List, Union
 from torch import linalg as LA
 import math
 
@@ -165,6 +165,26 @@ def scs(receptor_, img_, p=2.5, eps=1e-06):
     similarity = cos(torch.abs(receptor_).type(torch.float), img_.type(torch.float))
     return signs * torch.pow(similarity, p)
 
+# JKK: inspired by https://github.com/detkov/Convolution-From-Scratch
+
+def add_padding(matrix: torch.Tensor,
+                padding: Tuple[int, int]) -> torch.Tensor:
+    """Adds padding to the matrix.
+
+    Args:
+        matrix (torch.tensor): Matrix, in the form of a Torch tensor, that needs to be padded.
+        padding (Tuple[int, int]): Tuple with number of rows and columns to be padded. With the `(r, c)` padding we addding `r` rows to the top and bottom and `c` columns to the left and to the right of the matrix
+
+    Returns:
+        torch.tensor: Padded matrix with shape `n + 2 * r, m + 2 * c`.
+    """
+    n, m = matrix.shape
+    r, c = padding
+
+    padded_matrix = torch.zeros((n + r * 2, m + c * 2))
+    padded_matrix[r: n + r, c: m + c] = matrix
+
+    return padded_matrix
 
 def check_params(matrix, kernel, stride, dilation, padding):
     params_are_correct = (isinstance(stride[0], int) and isinstance(stride[1], int) and
@@ -190,16 +210,16 @@ def check_params(matrix, kernel, stride, dilation, padding):
     matrix_to_kernel_is_correct = n_p >= k[0] and m_p >= k[1]
     assert matrix_to_kernel_is_correct, 'Kernel can\'t be bigger than matrix in terms of shape.'
 
-    h_out = np.floor((n + 2 * padding[0] - k[0] - (k[0] - 1) * (dilation[0] - 1)) / stride[0]).astype(int) + 1
-    w_out = np.floor((m + 2 * padding[1] - k[1] - (k[1] - 1) * (dilation[1] - 1)) / stride[1]).astype(int) + 1
+    h_out = torch.floor((n + 2 * padding[0] - k[0] - (k[0] - 1) * (dilation[0] - 1)) / stride[0]).astype(int) + 1
+    w_out = torch.floor((m + 2 * padding[1] - k[1] - (k[1] - 1) * (dilation[1] - 1)) / stride[1]).astype(int) + 1
     out_dimensions_are_correct = h_out > 0 and w_out > 0
     assert out_dimensions_are_correct, 'Can\'t apply input parameters, one of resulting output dimension is non-positive.'
 
     return matrix, kernel, k, h_out, w_out
 
 
-def conv2d(matrix: Union[List[List[float]], torch.tensor],
-           kernel: Union[List[List[float]], torch.tensor],
+def conv2d(matrix: Union[List[List[float]], torch.Tensor],
+           kernel: Union[List[List[float]], torch.Tensor],
            stride: Tuple[int, int] = (1, 1),
            dilation: Tuple[int, int] = (1, 1),
            padding: Tuple[int, int] = (0, 0)) -> torch.tensor:
@@ -234,24 +254,6 @@ def conv2d(matrix: Union[List[List[float]], torch.tensor],
     return matrix_out
 
 
-def add_padding(matrix: torch.tensor,
-                padding: Tuple[int, int]) -> np.ndarray:
-    """Adds padding to the matrix.
-
-    Args:
-        matrix (torch.tensor): Matrix, in the form of a Torch tensor, that needs to be padded.
-        padding (Tuple[int, int]): Tuple with number of rows and columns to be padded. With the `(r, c)` padding we addding `r` rows to the top and bottom and `c` columns to the left and to the right of the matrix
-
-    Returns:
-        torch.tensor: Padded matrix with shape `n + 2 * r, m + 2 * c`.
-    """
-    n, m = matrix.shape
-    r, c = padding
-
-    padded_matrix = torch.zeros((n + r * 2, m + c * 2))
-    padded_matrix[r: n + r, c: m + c] = matrix
-
-    return padded_matrix
 
 def somatic_hypermutation_with_diffusion(clone, device, all_neighbours, hotspot, rho,
                                          low=0, high=256, dtype=torch.uint8):
