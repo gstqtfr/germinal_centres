@@ -2,7 +2,7 @@ import torch
 from typing import Tuple, List, Union
 from torch import linalg as LA
 import math
-
+import numpy as np
 
 def generate_apc(shape: Tuple[int, int], low=0, high=256, dtype=torch.uint8) -> torch.tensor:
     """
@@ -121,25 +121,6 @@ def get_neighbourhood(hotspot: Tuple[int, int], coords: List[Tuple[int, int]], m
 
     return neighbours
 
-
-# def manhattan(x1: int, y1: int, x2: int, y2: int) -> int:
-#     """
-#     Find the Manhattan distance between two elements of a matrix. We're calculating the distance based on their
-#     indices. For example if we're given the cell of a matrix at (0,0), & want to find the distance to (3,-2), we
-#      have manhattan(0, 0, 3,-2) = 5.
-#     :param x1: x-coordinate of first matrix cell
-#     :type x1: int
-#     :param y1: y-coordinate of first matrix cell
-#     :type y1: int
-#     :param x2: x-coord of second matrix cell
-#     :type x2: int
-#     :param y2: y-coord of second matrix cell
-#     :type y2: int
-#     :return: Manhattan distance between the two cells
-#     :rtype: int
-#     """
-#     return int(math.fabs(x2 - x1) + math.fabs(y2 - y1))
-
 def calculate_diffusion_coefficients_by_coordinates(hotspot, coord, rho, N=3):
     def manhattan_(x1: int, y1: int, x2: int, y2: int) -> int:
         return int(math.fabs(x2 - x1) + math.fabs(y2 - y1))
@@ -210,8 +191,8 @@ def check_params(matrix, kernel, stride, dilation, padding):
     matrix_to_kernel_is_correct = n_p >= k[0] and m_p >= k[1]
     assert matrix_to_kernel_is_correct, 'Kernel can\'t be bigger than matrix in terms of shape.'
 
-    h_out = torch.floor((n + 2 * padding[0] - k[0] - (k[0] - 1) * (dilation[0] - 1)) / stride[0]).astype(int) + 1
-    w_out = torch.floor((m + 2 * padding[1] - k[1] - (k[1] - 1) * (dilation[1] - 1)) / stride[1]).astype(int) + 1
+    h_out = np.floor((n + 2 * padding[0] - k[0] - (k[0] - 1) * (dilation[0] - 1)) / stride[0]).astype(int) + 1
+    w_out = np.floor((m + 2 * padding[1] - k[1] - (k[1] - 1) * (dilation[1] - 1)) / stride[1]).astype(int) + 1
     out_dimensions_are_correct = h_out > 0 and w_out > 0
     assert out_dimensions_are_correct, 'Can\'t apply input parameters, one of resulting output dimension is non-positive.'
 
@@ -222,18 +203,18 @@ def conv2d(matrix: Union[List[List[float]], torch.Tensor],
            kernel: Union[List[List[float]], torch.Tensor],
            stride: Tuple[int, int] = (1, 1),
            dilation: Tuple[int, int] = (1, 1),
-           padding: Tuple[int, int] = (0, 0)) -> torch.tensor:
+           padding: Tuple[int, int] = (0, 0)) -> torch.Tensor:
     """Makes a 2D convolution with the kernel over matrix using defined stride, dilation and padding along axes.
 
     Args:
-        matrix (Union[List[List[float]], torch.tensor]): 2D matrix to be convolved.
-        kernel (Union[List[List[float]], torch.tensor]): 2D odd-shaped matrix (e.g. 3x3, 5x5, 13x9, etc.).
+        matrix (Union[List[List[float]], torch.Tensor]): 2D matrix to be convolved.
+        kernel (Union[List[List[float]], torch. Tensor]): 2D odd-shaped matrix (e.g. 3x3, 5x5, 13x9, etc.).
         stride (Tuple[int, int], optional): Tuple of the stride along axes. With the `(r, c)` stride we move on `r` pixels along rows and on `c` pixels along columns on each iteration. Defaults to (1, 1).
         dilation (Tuple[int, int], optional): Tuple of the dilation along axes. With the `(r, c)` dilation we distancing adjacent pixels in kernel by `r` along rows and `c` along columns. Defaults to (1, 1).
         padding (Tuple[int, int], optional): Tuple with number of rows and columns to be padded. Defaults to (0, 0).
 
     Returns:
-        torch.tensor: 2D Feature map, i.e. matrix after convolution.
+        torch.Tensor: 2D Feature map, i.e. matrix after convolution.
     """
     matrix, kernel, k, h_out, w_out = check_params(matrix, kernel, stride, dilation, padding)
     matrix_out = torch.zeros((h_out, w_out))
