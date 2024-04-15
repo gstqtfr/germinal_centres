@@ -8,14 +8,32 @@ def clone(antibodies, number_of_clones, device):
         clones[idx] = torch.tile(antibodies[idx], (number_of_clones,))
     return clones
 
+def clone2d(antibodies, number_of_clones, device):
+    clones = torch.zeros((number_of_clones, *antibodies.shape,), dtype=torch.float64).to(device)
+    for i in torch.arange(number_of_clones):
+        clones[i] = torch.clone(antibodies)
+    return clones
+
+def clone_matrix(antibodies, number_of_clones, device):
+    clones = torch.zeros((antibodies.shape[0], antibodies.shape[1], number_of_clones), dtype=torch.float64).to(device)
+    for idx in torch.arange(antibodies.shape[0]):
+        clones[idx] = torch.tile(antibodies[idx], (number_of_clones,))
+    return clones
+
 # let's split this up a little bit - the code's a little "side-effecty"
 def get_mutations(M, N, epsilon, device):
     return torch.empty(size=(M, N,)).normal_(mean=0.,std=epsilon).to(device)
+
+def get_mutations(clones, epsilon, device):
+    return torch.empty(size=(clones.shape)).normal_(mean=0.,std=epsilon).to(device)
 
 def mutate(clones, eps, device):
     mutations = get_mutations(M=clones.shape[0], N=clones.shape[1], epsilon=eps, device=device)
     return clones + mutations
 
+def mutate2d(clones, eps, device):
+    mutations = get_mutations(clones=clones, epsilon=eps, device=device)
+    return clones + mutations
 def objective(x):
     """Test function.
 
@@ -64,10 +82,11 @@ def get_highest_affinity_clone(antibodies, affinities):
     return antibodies[get_highest_affinity_index(affinities)]
 
 
-def apply_real_valued_BCA(x_optima, func, r_min, r_max, trial, epsilon=2.5, tolerance=1e-6, iterations=50000, N=50,
+def apply_real_valued_BCA(x_optima, func, r_min, r_max, trial, device,
+                          epsilon=2.5, tolerance=1e-6, iterations=50000, N=50,
                           C=50, halving=100):
     # initialise the population
-    antibodies = torch.distributions.uniform.Uniform(r_min, r_max).sample([P]).to(device)
+    antibodies = torch.distributions.uniform.Uniform(r_min, r_max).sample([N]).to(device)
 
     # get out x-value on the correct device
     optima = torch.tensor([x_optima]).to(device)

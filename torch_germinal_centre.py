@@ -1,7 +1,9 @@
 import torch
 from itertools import count
+from functools import reduce, partial
 import matplotlib.pyplot as plt
 import numpy as np
+import math
 
 def plot_figures(figures, nrows=1, ncols=1):
     """Plot a dictionary of figures.
@@ -22,6 +24,17 @@ def plot_figures(figures, nrows=1, ncols=1):
         axeslist.ravel()[ind].set_title(title)
         axeslist.ravel()[ind].set_axis_off()
     plt.tight_layout()  # optional
+
+def output_threshold_figures(_labels, _images, _threshold, N=32):
+    l = []
+
+    for _class in range(10):
+        l.append(get_total_frequencies_per_class(_labels=_labels, _images=_images, _class=_class, _threshold=_threshold, N=N))
+
+    figures = {'image of '+str(i): l[i] for i in range(10)}
+    plot_figures(figures, 5, 2)
+
+    return l
 
 
 def split_batch(target_array, _class):
@@ -63,6 +76,17 @@ def get_batch_images(labels, images, _class, start=0, stop=32):
     # JKK: add create_batch here, for convenience?
     return [images[idx] for idx in indices]
 
+def get_random_batch(labels, images, N=32):
+    """Gets a random sample of the indices from the label dataset of size N."""
+    #
+    indices = torch.randint(high=len(labels), size=(N,))
+    # JKK: add create_batch here, for convenience?
+    # return [images[idx] for idx in indices]
+
+    image_batch = [images[idx] for idx in indices]
+    label_batch = [labels[idx] for idx in indices]
+
+    return torch.from_numpy(np.array(image_batch)), torch.from_numpy(np.array(label_batch))
 
 def get_binary_threshold(m, threshold=127):
     return torch.where(m >= threshold, 1, 0)
@@ -70,6 +94,27 @@ def get_binary_threshold(m, threshold=127):
 
 def get_number_of_batches(dataset, _class, batch_size):
     return math.floor(len(split_batch(dataset, _class)) / batch_size)
+
+def scs(receptor_, img_, p=2.5, eps=1e-06):
+    # we need to preserve the sign of the receptor
+    signs = torch.sign(receptor_)
+    # more efficient to do this outside & pass it as a ref to func, but we might
+    # want to reduce this as we go along ...
+    cos = torch.nn.CosineSimilarity(eps=eps)
+    similarity = cos(torch.abs(receptor_).type(torch.float), img_.type(torch.float))
+    return signs * torch.pow(similarity, p)
+
+def get_sharpened_cosine_similarity_of_naive_max_classifiers(list_of_classifiers, image, p=2.5):
+
+    classifications = torch.zeros(len(list_of_classifiers))
+
+    for idx, maxc in enumerate(list_of_classifiers):
+        sharpened_cosine_similarity = scs(receptor_=maxc, img_= image, p=p)
+        sum_similarity = torch.sum(sharpened_cosine_similarity)
+        #print(f"{idx}: {sum_similarity}")
+        classifications[idx] = sum_similarity
+
+    return classifications
 
 
 def get_frequencies_per_class(_labels, _images, _class, _threshold, N=32):
